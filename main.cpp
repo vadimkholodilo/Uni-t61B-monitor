@@ -1,16 +1,20 @@
+#include <algorithm>
 #include <ctime>
+#ifdef _WIN32
 #include "tolk/tolk.h"
+#include <windows.h>
+#pragma comment(lib, "serial.lib")
+#pragma comment(lib, "Tolk.lib")
+#endif
 #include "decoder.h"
 #include <string>
 #include <sstream>
 #include <iostream>
-#include <windows.h>
+#include <clocale>
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
 #include "serial/serial.h"
-#pragma comment(lib, "serial.lib")
-#pragma comment(lib, "Tolk.lib")
 using namespace std;
 using namespace serial;
 
@@ -22,7 +26,13 @@ void mySleep(unsigned long milliseconds) {
 #endif
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	vector<string>commandLineArguments;
+if (argc > 1) {
+for (int i = 1; i < argc; i++) {
+			commandLineArguments.push_back(argv[i]);
+		}
+	}
     setlocale (LC_ALL,"russian");
 	time_t speakInterval = 2;
 	time_t prevTime = 0;
@@ -38,20 +48,23 @@ bool screenReaderIsRunning = false;
 	vector<serial::PortInfo> ports = serial::list_ports();
 	if (!ports.size()) {
 		cout << "No connected devices" << endl;
+		Tolk_Output(L"No connected devices");
 		system("pause");
 		return -3;
 	}
 	int index = 0;
-	cout << "Choose your port" << endl;
-	for (int i = 0; i < ports.size(); i++) {
-		cout << ports[i].port << "    " << i << endl;
+	if (find(commandLineArguments.begin(), commandLineArguments.end(), "--noconfig") == commandLineArguments.end()) {
+cout << "Choose your port" << endl;
+		for (int i = 0; i < ports.size(); i++) {
+			cout << ports[i].port << "    " << i << endl;
+		}
+		cout << "Enter your choice or enter 0 and the first port in the list will be chosen." << endl;
+		cin >> index;
+		if (index > ports.size() - 1) cout << "Invalid index. The first port in the list will be chosen" << endl;
 	}
-	cout << "Enter your choice or enter 0 and the first port in the list will be chosen." << endl;
-	cin >> index;
-	if (index > ports.size() - 1) cout << "Invalid index. The first port in the list will be chosen" << endl;
 	string port = ports[index].port;
 	wstring prevMode(L"");
-	wstringstream message;
+	wstringstream stringValue;
 	float prevValue = 0.0;
 	Serial ser;
 	ser.setPort(port);
@@ -89,10 +102,13 @@ bool screenReaderIsRunning = false;
 			if (prevValue != decoder.value && time(NULL) - prevTime >= speakInterval) {
 				prevValue = decoder.value;
 				if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10;
-				message = wstringstream();
-				message << decoder.value << decoder.unit;
-				if (screenReaderIsRunning) Tolk_Output(message.str().c_str());
-				else wcout << message.str() << endl;
+               stringValue = wstringstream();
+				stringValue << decoder.value;
+				if (screenReaderIsRunning) {
+                    Tolk_Output(stringValue.str().c_str());
+                Tolk_Output(decoder.unit.c_str());
+                }
+				else wcout << stringValue.str() << " " << decoder.unit << endl;
 				prevTime = time(NULL);	}
 	}
 		else continue;
