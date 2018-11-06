@@ -23,6 +23,7 @@ void mySleep(unsigned long milliseconds) {
 }
 
 int main() {
+    setlocale (LC_ALL,"russian");
 	time_t speakInterval = 2;
 	time_t prevTime = 0;
 bool screenReaderIsRunning = false;
@@ -35,6 +36,11 @@ bool screenReaderIsRunning = false;
 			}
 	int errorCode = 0;
 	vector<serial::PortInfo> ports = serial::list_ports();
+	if (!ports.size()) {
+		cout << "No connected devices" << endl;
+		system("pause");
+		return -3;
+	}
 	int index = 0;
 	cout << "Choose your port" << endl;
 	for (int i = 0; i < ports.size(); i++) {
