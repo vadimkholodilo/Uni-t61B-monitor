@@ -77,7 +77,8 @@ cout << "Choose your port" << endl;
 	}
 	string port = ports[index].port;
 	wstring prevMode(L"");
-	wstringstream stringValue;
+	wstringstream ss;
+	wstring stringValue;
 	float prevValue = 0.0;
 	Serial ser;
 	ser.setPort(port);
@@ -109,8 +110,12 @@ cout << "Choose your port" << endl;
 		errorCode = decoder.decodeData(rawData);
 		if (!errorCode) {
 			if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10;
-			stringValue << decoder.value;
-			if (prevMode != decoder.mode) {
+			ss << decoder.value;
+			stringValue = ss.str();
+if (stringValue.find(L" ")) {
+				stringValue = stringValue.erase(1, 1);
+			}
+if (prevMode != decoder.mode) {
 				prevMode = decoder.mode;
 				if (screenReaderIsRunning) Tolk_Output(decoder.mode.c_str(), true);
 				else wcout << decoder.mode << endl;
@@ -118,20 +123,20 @@ cout << "Choose your port" << endl;
 			if (prevValue != decoder.value && time(NULL) - prevTime >= speakInterval) {
 				prevValue = decoder.value;
 								if (screenReaderIsRunning) {
-                    Tolk_Output(wstring(stringValue.str()+decoder.unit).c_str());
+                    Tolk_Output(wstring(stringValue+decoder.unit).c_str());
                 }
-				else wcout << stringValue.str() << " " << decoder.unit << endl;
+				else wcout << stringValue << " " << decoder.unit << endl;
 prevTime = time(NULL);
 			}
 			if (loggerIsEnabled) {
 				message.clear();
 				message.push_back(decoder.mode);
-				message.push_back(stringValue.str());
+message.push_back(stringValue);
 				message.push_back(decoder.unit);
 				exporter.insert(true, message);
 			}
-			stringValue = wstringstream();
-			stringValue.imbue(std::locale(""));
+			ss = wstringstream();
+			ss.imbue(std::locale(""));
 }
 	else continue;
 		mySleep(400);
