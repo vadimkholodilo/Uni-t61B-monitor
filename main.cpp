@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include "CSVExporter.h"
 #include <algorithm>
 #include <ctime>
 #ifdef _WIN32
@@ -13,7 +15,6 @@
 #include <clocale>
 #include <cstring>
 #include <cstdlib>
-#include <fstream>
 #include "serial/serial.h"
 using namespace std;
 using namespace serial;
@@ -27,13 +28,17 @@ void mySleep(unsigned long milliseconds) {
 }
 
 int main(int argc, char* argv[]) {
+	bool loggerIsEnabled = false;
+	vector<wstring> columns;
+CSVExporter exporter;
+	vector<wstring>message;
 	vector<string>commandLineArguments;
 if (argc > 1) {
 for (int i = 1; i < argc; i++) {
 			commandLineArguments.push_back(argv[i]);
 		}
 	}
-    setlocale (LC_ALL,"russian");
+    setlocale (LC_ALL,"");
 	time_t speakInterval = 2;
 	time_t prevTime = 0;
 bool screenReaderIsRunning = false;
@@ -62,6 +67,14 @@ cout << "Choose your port" << endl;
 		cin >> index;
 		if (index > ports.size() - 1) cout << "Invalid index. The first port in the list will be chosen" << endl;
 	}
+	if (find(commandLineArguments.begin(), commandLineArguments.end(), "--log") != commandLineArguments.end()) {
+		loggerIsEnabled = true;
+		columns.push_back(L"Time");
+		columns.push_back(L"Mode");
+		columns.push_back(L"Value");
+		columns.push_back(L"Unit");
+		exporter = CSVExporter(L"log.csv", columns);
+	}
 	string port = ports[index].port;
 	wstring prevMode(L"");
 	wstringstream stringValue;
@@ -84,6 +97,7 @@ cout << "Choose your port" << endl;
 	uint8_t rawData[14];
 	// Untill the end of time
 	prevTime = time(NULL);
+	wstring formattedValue;
 	while (true) {
 		try {
 			ser.read(rawData, 14);
@@ -94,6 +108,8 @@ cout << "Choose your port" << endl;
 		}
 		errorCode = decoder.decodeData(rawData);
 		if (!errorCode) {
+			if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10;
+			stringValue << decoder.value;
 			if (prevMode != decoder.mode) {
 				prevMode = decoder.mode;
 				if (screenReaderIsRunning) Tolk_Output(decoder.mode.c_str(), true);
@@ -101,17 +117,23 @@ cout << "Choose your port" << endl;
 			}
 			if (prevValue != decoder.value && time(NULL) - prevTime >= speakInterval) {
 				prevValue = decoder.value;
-				if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10;
-               stringValue = wstringstream();
-				stringValue << decoder.value;
-				if (screenReaderIsRunning) {
-                    Tolk_Output(stringValue.str().c_str());
-                Tolk_Output(decoder.unit.c_str());
+								if (screenReaderIsRunning) {
+                    Tolk_Output(wstring(stringValue.str()+decoder.unit).c_str());
                 }
 				else wcout << stringValue.str() << " " << decoder.unit << endl;
-				prevTime = time(NULL);	}
-	}
-		else continue;
+prevTime = time(NULL);
+			}
+			if (loggerIsEnabled) {
+				message.clear();
+				message.push_back(decoder.mode);
+				message.push_back(stringValue.str());
+				message.push_back(decoder.unit);
+				exporter.insert(true, message);
+			}
+			stringValue = wstringstream();
+			stringValue.imbue(std::locale(""));
+}
+	else continue;
 		mySleep(400);
 		}
 		system("pause");
