@@ -18,6 +18,14 @@
 #include "serial/serial.h"
 using namespace std;
 using namespace serial;
+// functions
+void printHelp() {
+	cout << "Useage" << endl;
+	cout << "Commands: " << endl;
+	cout << "--log exports data in CSV format" << endl;
+	cout << "--noconfig prevents program asking COM port. The first found port will be used" << endl;
+	cout << "--help - prints help" << endl;
+}
 
 void mySleep(unsigned long milliseconds) {
 #ifdef _WIN32
@@ -28,6 +36,11 @@ void mySleep(unsigned long milliseconds) {
 }
 
 int main(int argc, char* argv[]) {
+	setlocale(LC_ALL, "");
+	cout << "Uni-t 61B monitor" << endl;
+	time_t speakInterval = 2;
+	time_t prevTime = 0;
+	int errorCode = 0;
 	bool loggerIsEnabled = false;
 	vector<wstring> columns;
 CSVExporter exporter;
@@ -38,9 +51,7 @@ for (int i = 1; i < argc; i++) {
 			commandLineArguments.push_back(argv[i]);
 		}
 	}
-    setlocale (LC_ALL,"");
-	time_t speakInterval = 2;
-	time_t prevTime = 0;
+if (find(commandLineArguments.begin(), commandLineArguments.end(), "--help") != commandLineArguments.end()) printHelp();
 bool screenReaderIsRunning = false;
 	Tolk_Load();
 	Tolk_DetectScreenReader();
@@ -49,8 +60,7 @@ bool screenReaderIsRunning = false;
 	if (screenReaderIsRunning) {
 		Tolk_Output(L"Speech is enabled");
 			}
-	int errorCode = 0;
-	vector<serial::PortInfo> ports = serial::list_ports();
+vector<serial::PortInfo> ports = serial::list_ports();
 	if (!ports.size()) {
 		cout << "No connected devices" << endl;
 		Tolk_Output(L"No connected devices");
@@ -58,7 +68,7 @@ bool screenReaderIsRunning = false;
 		return -3;
 	}
 	int index = 0;
-	if (find(commandLineArguments.begin(), commandLineArguments.end(), "--noconfig") == commandLineArguments.end()) {
+if (find(commandLineArguments.begin(), commandLineArguments.end(), "--noconfig") == commandLineArguments.end()) {
 cout << "Choose your port" << endl;
 		for (int i = 0; i < ports.size(); i++) {
 			cout << ports[i].port << "    " << i << endl;
@@ -78,7 +88,6 @@ cout << "Choose your port" << endl;
 	string port = ports[index].port;
 	wstring prevMode(L"");
 	wstringstream ss;
-	wstring stringValue;
 	float prevValue = 0.0;
 	Serial ser;
 	ser.setPort(port);
@@ -109,12 +118,8 @@ cout << "Choose your port" << endl;
 		}
 		errorCode = decoder.decodeData(rawData);
 		if (!errorCode) {
-			if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10;
+			if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10.0;
 			ss << decoder.value;
-			stringValue = ss.str();
-if (stringValue.find(L" ")) {
-				stringValue = stringValue.erase(1, 1);
-			}
 if (prevMode != decoder.mode) {
 				prevMode = decoder.mode;
 				if (screenReaderIsRunning) Tolk_Output(decoder.mode.c_str(), true);
@@ -123,15 +128,15 @@ if (prevMode != decoder.mode) {
 			if (prevValue != decoder.value && time(NULL) - prevTime >= speakInterval) {
 				prevValue = decoder.value;
 								if (screenReaderIsRunning) {
-                    Tolk_Output(wstring(stringValue+decoder.unit).c_str());
+                    Tolk_Output(wstring(ss.str()+decoder.unit).c_str());
                 }
-				else wcout << stringValue << " " << decoder.unit << endl;
+				else wcout << decoder.value << " " << decoder.unit << endl;
 prevTime = time(NULL);
 			}
 			if (loggerIsEnabled) {
 				message.clear();
 				message.push_back(decoder.mode);
-message.push_back(stringValue);
+message.push_back(ss.str());
 				message.push_back(decoder.unit);
 				exporter.insert(true, message);
 			}
@@ -144,3 +149,4 @@ message.push_back(stringValue);
 		system("pause");
 		return 0;
 	}
+
