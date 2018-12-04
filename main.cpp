@@ -118,7 +118,7 @@ cout << "Choose your port" << endl;
 		}
 		errorCode = decoder.decodeData(rawData);
 		if (!errorCode) {
-			if (decoder.mode.find(L"voltage") && !decoder.mode.find(L"m") && !decoder.mode.find(L"AC") || decoder.mode.find(L"Freequancy")) decoder.value *= 10.0;
+			decoder.value *= decoder.multiplier;
 			ss << decoder.value;
 if (prevMode != decoder.mode) {
 				prevMode = decoder.mode;
@@ -143,7 +143,10 @@ message.push_back(ss.str());
 			ss = wstringstream();
 			ss.imbue(std::locale(""));
 }
-	else continue;
+		else {
+			cout << "Bit " << errorCode << " is rong" << endl;
+			continue;
+		}
 		mySleep(400);
 		}
 		system("pause");
